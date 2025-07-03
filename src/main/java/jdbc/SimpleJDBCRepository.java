@@ -15,7 +15,7 @@ public class SimpleJDBCRepository {
 
     private final CustomDataSource dataSource = CustomDataSource.getInstance();
 
-    private static final String createUserSQL = "INSERT INTO myusers (firstname, lastname, age) VALUES (?, ?, ?) RETURNING id";
+    private static final String createUserSQL = "INSERT INTO myusers (firstname, lastname, age) VALUES (?, ?, ?)";
     private static final String updateUserSQL = "UPDATE myusers SET firstname = ?, lastname = ?, age = ? WHERE id = ?";
     private static final String deleteUserSQL = "DELETE FROM myusers WHERE id = ?";
     private static final String findUserByIdSQL = "SELECT * FROM myusers WHERE id = ?";
@@ -25,14 +25,18 @@ public class SimpleJDBCRepository {
     public Long createUser(User user) {
         try {
             connection = dataSource.getConnection();
-            ps = connection.prepareStatement(createUserSQL);
+            ps = connection.prepareStatement(createUserSQL, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, user.getFirstName());
             ps.setString(2, user.getLastName());
             ps.setInt(3, user.getAge());
 
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        return rs.getLong(1);
+                    }
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error creating user", e);
@@ -41,6 +45,7 @@ public class SimpleJDBCRepository {
         }
         return null;
     }
+
 
     public User findUserById(Long userId) {
         try {
